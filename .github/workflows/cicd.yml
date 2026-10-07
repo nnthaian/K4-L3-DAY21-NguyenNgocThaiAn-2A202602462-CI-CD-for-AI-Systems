@@ -99,6 +99,22 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            sudo systemctl restart income-api
-            sleep 5
-            curl -sf http://localhost:8080/healthz && echo "Health check passed." || exit 1
+            set -e
+            sudo systemctl stop income-api
+            /home/ubuntu/income-api/.venv/bin/pip install --disable-pip-version-check "scikit-learn==1.7.2"
+            sudo systemctl start income-api
+
+            for attempt in $(seq 1 12); do
+              if curl -sf http://localhost:8080/healthz; then
+                echo
+                echo "Health check passed."
+                exit 0
+              fi
+              echo "Waiting for income-api ($attempt/12)..."
+              sleep 5
+            done
+
+            echo "Health check failed."
+            sudo systemctl status income-api --no-pager -l || true
+            sudo journalctl -u income-api -n 100 --no-pager || true
+            exit 1
