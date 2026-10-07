@@ -11,3 +11,7 @@ sa-key.json
 __pycache__/
 *.pyc
 .DS_Store
+prepare_data.py
+income-api-key.pem
+income_deploy
+income_deploy.pub

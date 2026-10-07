@@ -1,8 +1,11 @@
 import pandas as pd
 import os
+import ssl
+import tempfile
+import urllib.request
+import zipfile
 
-TRAIN_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data"
-TEST_URL  = "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test"
+DATASET_URL = "https://archive.ics.uci.edu/static/public/2/adult.zip"
 
 # 15 cot goc cua bo du lieu Adult (file CSV khong co dong tieu de)
 RAW_COLUMNS = [
@@ -21,9 +24,9 @@ FEATURE_COLUMNS = [
 CATEGORICAL_COLUMNS = ["workclass", "marital_status", "occupation", "relationship", "sex"]
 
 
-def load(url: str, skiprows: int) -> pd.DataFrame:
+def load(path: str, skiprows: int) -> pd.DataFrame:
     return pd.read_csv(
-        url,
+        path,
         header=None,
         names=RAW_COLUMNS,
         skiprows=skiprows,
@@ -32,8 +35,21 @@ def load(url: str, skiprows: int) -> pd.DataFrame:
     )
 
 
-df_train = load(TRAIN_URL, skiprows=0)
-df_test  = load(TEST_URL,  skiprows=1)   # dong dau cua adult.test la dong chu thich
+with tempfile.TemporaryDirectory() as temp_dir:
+    archive_path = os.path.join(temp_dir, "adult.zip")
+
+    # Tam bo qua kiem tra SSL vi endpoint dataset dang co chung chi loi.
+    # Khong su dung cach nay trong production.
+    ssl_context = ssl._create_unverified_context()
+    with urllib.request.urlopen(DATASET_URL, context=ssl_context) as response:
+        with open(archive_path, "wb") as output:
+            output.write(response.read())
+
+    with zipfile.ZipFile(archive_path) as archive:
+        archive.extractall(temp_dir)
+
+    df_train = load(os.path.join(temp_dir, "adult.data"), skiprows=0)
+    df_test = load(os.path.join(temp_dir, "adult.test"), skiprows=1)
 
 # Nhan trong adult.test co dau cham o cuoi ("<=50K."), can cat bo cho khop voi adult.data
 df_test["income"] = df_test["income"].str.rstrip(".")
